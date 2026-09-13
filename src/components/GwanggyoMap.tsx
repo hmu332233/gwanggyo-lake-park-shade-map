@@ -25,44 +25,39 @@ type CompassOrientationEventConstructor = typeof DeviceOrientationEvent & {
   requestPermission?: () => Promise<"granted" | "denied">;
 };
 
-function createHeadingControl(): maplibregl.IControl {
-  const container = document.createElement("div");
-  container.className = "maplibregl-ctrl maplibregl-ctrl-group";
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "maplibregl-ctrl-heading";
-  button.title = "보는 방향 맞추기";
-  button.setAttribute("aria-label", "보는 방향 맞추기");
-  button.setAttribute("aria-pressed", "false");
-  button.textContent = "▲";
-  container.append(button);
-
-  let map: MLMap;
+function addUserHeading(map: MLMap, geolocate: maplibregl.GeolocateControl) {
+  const button = map.getContainer().querySelector<HTMLButtonElement>(".maplibregl-ctrl-geolocate");
+  if (!button) return () => {};
   let listening = false;
-  let frame = 0;
+  let heading: number | null = null;
+  const update = () => {
+    const dot = map.getContainer().querySelector<HTMLElement>(".maplibregl-user-location-dot");
+    if (!dot || heading === null) return;
+    let cone = dot.querySelector<HTMLElement>(".gw-user-heading");
+    if (!cone) {
+      cone = document.createElement("span");
+      cone.className = "gw-user-heading";
+      dot.append(cone);
+    }
+    cone.style.transform = `translateX(-50%) rotate(${heading - map.getBearing()}deg)`;
+  };
   const onOrientation = (rawEvent: Event) => {
     const event = rawEvent as CompassOrientationEvent;
-    const heading = event.webkitCompassHeading ?? (
+    heading = event.webkitCompassHeading ?? (
       event.absolute && event.alpha !== null
         ? (360 - event.alpha + (screen.orientation?.angle ?? 0)) % 360
         : null
     );
-    if (heading === null || frame) return;
-    frame = requestAnimationFrame(() => {
-      map.rotateTo(heading, { duration: 100 });
-      frame = 0;
-    });
+    update();
   };
   const stop = () => {
     window.removeEventListener("deviceorientationabsolute", onOrientation);
     window.removeEventListener("deviceorientation", onOrientation);
-    if (frame) cancelAnimationFrame(frame);
-    frame = 0;
     listening = false;
-    button.setAttribute("aria-pressed", "false");
+    heading = null;
+    map.getContainer().querySelector(".gw-user-heading")?.remove();
   };
-  button.addEventListener("click", async () => {
-    if (listening) return stop();
+  const start = async () => {
     const orientation = window.DeviceOrientationEvent as CompassOrientationEventConstructor | undefined;
     if (!orientation) return;
     try {
@@ -73,19 +68,23 @@ function createHeadingControl(): maplibregl.IControl {
     window.addEventListener("deviceorientationabsolute", onOrientation);
     window.addEventListener("deviceorientation", onOrientation);
     listening = true;
-    button.setAttribute("aria-pressed", "true");
-  });
-
-  return {
-    onAdd(nextMap) {
-      map = nextMap;
-      if (!("DeviceOrientationEvent" in window)) button.disabled = true;
-      return container;
-    },
-    onRemove() {
-      stop();
-      container.remove();
-    },
+  };
+  const onClick = () => {
+    const turningOff = button.classList.contains("maplibregl-ctrl-geolocate-active") &&
+      !button.classList.contains("maplibregl-ctrl-geolocate-background");
+    if (turningOff) stop();
+    else if (!listening) void start();
+  };
+  button.addEventListener("click", onClick);
+  map.on("rotate", update);
+  geolocate.on("geolocate", update);
+  geolocate.on("error", stop);
+  return () => {
+    stop();
+    button.removeEventListener("click", onClick);
+    map.off("rotate", update);
+    geolocate.off("geolocate", update);
+    geolocate.off("error", stop);
   };
 }
 
@@ -277,13 +276,14 @@ export default function GwanggyoMap({
       attributionControl: { compact: true },
     });
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
-    map.addControl(new maplibregl.GeolocateControl({
+    const geolocate = new maplibregl.GeolocateControl({
       positionOptions: { enableHighAccuracy: true },
       trackUserLocation: true,
       showUserLocation: true,
       showAccuracyCircle: true,
-    }), "top-right");
-    map.addControl(createHeadingControl(), "top-right");
+    });
+    map.addControl(geolocate, "top-right");
+    const removeUserHeading = addUserHeading(map, geolocate);
     map.addControl(new maplibregl.ScaleControl({ unit: "metric" }), "bottom-left");
 
     map.on("load", () => {
@@ -490,6 +490,7 @@ export default function GwanggyoMap({
       (window as unknown as { __gwMap?: MLMap }).__gwMap = map; // debugging hook (dev only)
     }
     return () => {
+      removeUserHeading();
       popupRef.current?.remove();
       popupRef.current = null;
       map.remove();
