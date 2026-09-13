@@ -18,4 +18,6 @@ body,
 button, input { font-family: inherit; }
 button:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px solid #467664; outline-offset: 3px; }
 .maplibregl-ctrl-group { border-radius: 10px !important; overflow: hidden; }
+.maplibregl-ctrl-heading { color: #65756e; font-size: 14px; }
+.maplibregl-ctrl-heading[aria-pressed="true"] { color: #356b5b; background: #eff3ef; }
 .maplibregl-popup-content { border-radius: 12px; padding: 14px; }

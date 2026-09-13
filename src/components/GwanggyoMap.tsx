@@ -20,6 +20,75 @@ const EMPTY_FC: FeatureCollection = { type: "FeatureCollection", features: [] };
 
 const MAP_STYLE: string | StyleSpecification = "https://tiles.openfreemap.org/styles/positron";
 
+type CompassOrientationEvent = DeviceOrientationEvent & { webkitCompassHeading?: number };
+type CompassOrientationEventConstructor = typeof DeviceOrientationEvent & {
+  requestPermission?: () => Promise<"granted" | "denied">;
+};
+
+function createHeadingControl(): maplibregl.IControl {
+  const container = document.createElement("div");
+  container.className = "maplibregl-ctrl maplibregl-ctrl-group";
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "maplibregl-ctrl-heading";
+  button.title = "보는 방향 맞추기";
+  button.setAttribute("aria-label", "보는 방향 맞추기");
+  button.setAttribute("aria-pressed", "false");
+  button.textContent = "▲";
+  container.append(button);
+
+  let map: MLMap;
+  let listening = false;
+  let frame = 0;
+  const onOrientation = (rawEvent: Event) => {
+    const event = rawEvent as CompassOrientationEvent;
+    const heading = event.webkitCompassHeading ?? (
+      event.absolute && event.alpha !== null
+        ? (360 - event.alpha + (screen.orientation?.angle ?? 0)) % 360
+        : null
+    );
+    if (heading === null || frame) return;
+    frame = requestAnimationFrame(() => {
+      map.rotateTo(heading, { duration: 100 });
+      frame = 0;
+    });
+  };
+  const stop = () => {
+    window.removeEventListener("deviceorientationabsolute", onOrientation);
+    window.removeEventListener("deviceorientation", onOrientation);
+    if (frame) cancelAnimationFrame(frame);
+    frame = 0;
+    listening = false;
+    button.setAttribute("aria-pressed", "false");
+  };
+  button.addEventListener("click", async () => {
+    if (listening) return stop();
+    const orientation = window.DeviceOrientationEvent as CompassOrientationEventConstructor | undefined;
+    if (!orientation) return;
+    try {
+      if (orientation.requestPermission && await orientation.requestPermission() !== "granted") return;
+    } catch {
+      return;
+    }
+    window.addEventListener("deviceorientationabsolute", onOrientation);
+    window.addEventListener("deviceorientation", onOrientation);
+    listening = true;
+    button.setAttribute("aria-pressed", "true");
+  });
+
+  return {
+    onAdd(nextMap) {
+      map = nextMap;
+      if (!("DeviceOrientationEvent" in window)) button.disabled = true;
+      return container;
+    },
+    onRemove() {
+      stop();
+      container.remove();
+    },
+  };
+}
+
 export interface GwanggyoMapProps {
   park: FeatureCollection | null;
   parkGround: FeatureCollection | null;
@@ -214,6 +283,7 @@ export default function GwanggyoMap({
       showUserLocation: true,
       showAccuracyCircle: true,
     }), "top-right");
+    map.addControl(createHeadingControl(), "top-right");
     map.addControl(new maplibregl.ScaleControl({ unit: "metric" }), "bottom-left");
 
     map.on("load", () => {
