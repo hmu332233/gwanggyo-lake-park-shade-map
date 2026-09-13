@@ -61,6 +61,14 @@ export default function MapControls({ visibility, onChange, sun, dateLabel, stat
           <p className={styles.note}>OpenStreetMap 건물·수목과 Meta·WRI 위성 수관 높이(과거 위성 영상·촬영 시점 미확인, CC BY 4.0)를 이용한 추정입니다. 최근 식재·벌목과 실제 높이 차이는 반영되지 않을 수 있습니다.</p>
           {stats && <p className={styles.note}>건물 {stats.buildings.toLocaleString()} · 수목·시설 {stats.vegetation.toLocaleString()} · 위성 수관 {stats.canopyChm.toLocaleString()}</p>}
         </details>
+        <a
+          className={styles.github}
+          href="https://github.com/hmu332233/gwanggyo-lake-park-shade-map"
+          target="_blank"
+          rel="noreferrer"
+        >
+          GitHub ↗
+        </a>
       </div>}
     </div>
   );

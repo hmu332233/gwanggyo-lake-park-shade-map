@@ -14,6 +14,8 @@
 .settings { border-top: 1px solid #e2e8e2; padding-top: 4px; }
 .settings summary { cursor: pointer; padding: 8px 0; font-size: 12px; }
 .settings .note { margin-top: 12px; font-size: 11px; }
+.github { align-self: flex-start; color: #688079; font-size: 11px; text-decoration: none; border-top: 1px solid #e2e8e2; padding-top: 10px; width: 100%; }
+.github:hover { color: #356b5b; text-decoration: underline; }
 .layers { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 8px; }
 .check { display: flex; align-items: center; gap: 6px; min-height: 36px; cursor: pointer; font-size: 12px; }
 .check input { width: 16px; height: 16px; accent-color: #356b5b; }
