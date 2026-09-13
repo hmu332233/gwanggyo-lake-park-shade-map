@@ -1,0 +1,91 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.date {
+  font: 14px/1.2 system-ui, sans-serif;
+  padding: 9px 8px;
+  border: 1px solid #d3d7e0;
+  border-radius: 8px;
+  background: #fff;
+  color: #243a35;
+}
+.time {
+  font: 600 22px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: #243a35;
+  min-width: 70px;
+  letter-spacing: 0.5px;
+}
+.now {
+  margin-left: auto;
+  font: 13px/1 system-ui, sans-serif;
+  padding: 12px;
+  border-radius: 999px;
+  border: 1px solid #d3d7e0;
+  background: #f4f6fa;
+  color: #243a35;
+  cursor: pointer;
+}
+.now:hover {
+  background: #e9edf5;
+}
+.sliderRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tick {
+  font: 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: #6b7280;
+}
+.sliderBox {
+  flex: 1;
+}
+.slider {
+  width: 100%;
+  height: 32px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  touch-action: pan-y;
+}
+.slider::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #467664 var(--pct), #dde2ea var(--pct));
+}
+.slider::-moz-range-track {
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #467664 var(--pct), #dde2ea var(--pct));
+}
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 26px;
+  height: 26px;
+  margin-top: -10px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid #467664;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+.slider::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid #467664;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+.caption { display: flex; justify-content: space-between; font-size: 12px; color: #53685d; }
+.caption span { font-size: 10px; color: #738278; }
+@media (max-width: 400px) { .row { gap: 8px; } .date { width: 137px; min-width: 0; font-size: 12px; } .time { font-size: 21px; min-width: 60px; } .now { font-size: 11px; padding: 12px 8px; white-space: nowrap; } }

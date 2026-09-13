@@ -1,0 +1,21 @@
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+* {
+  box-sizing: border-box;
+}
+.maplibregl-ctrl-attrib {
+  font-size: 10px;
+}
+
+button, input { font-family: inherit; }
+button:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px solid #467664; outline-offset: 3px; }
+.maplibregl-ctrl-group { border-radius: 10px !important; overflow: hidden; }
+.maplibregl-popup-content { border-radius: 12px; padding: 14px; }

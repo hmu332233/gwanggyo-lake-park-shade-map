@@ -1,0 +1,25 @@
+.panel { display: flex; flex-direction: column; gap: 12px; color: #243a35; font-size: 13px; line-height: 1.55; }
+.eyebrow { font-size: 10px; font-weight: 700; letter-spacing: 1.8px; color: #688079; }
+.header { display: flex; align-items: center; justify-content: space-between; gap: 8px; border: 0; padding: 0; background: none; color: inherit; cursor: pointer; text-align: left; }
+.title { font-size: 22px; letter-spacing: -1px; font-weight: 750; }
+.chevron { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: #eff3ef; font-size: 20px; }
+.subtitle { margin: -8px 0 0; color: #688079; font-size: 11px; }
+.legend { display: flex; gap: 10px; align-items: center; font-size: 12px; }
+.ramp { flex: 1; height: 7px; border-radius: 10px; }
+.summary { display: flex; align-items: baseline; justify-content: space-between; padding-top: 10px; border-top: 1px solid #e2e8e2; }
+.summary strong { font-size: 25px; font-variant-numeric: tabular-nums; color: #2f5d9e; }
+.body { display: flex; flex-direction: column; gap: 12px; }
+.detail, .note { margin: 0; color: #65756e; font-size: 12px; }
+.detail { margin-top: -6px; }
+.settings { border-top: 1px solid #e2e8e2; padding-top: 4px; }
+.settings summary { cursor: pointer; padding: 8px 0; font-size: 12px; }
+.settings .note { margin-top: 12px; font-size: 11px; }
+.layers { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 8px; }
+.check { display: flex; align-items: center; gap: 6px; min-height: 36px; cursor: pointer; font-size: 12px; }
+.check input { width: 16px; height: 16px; accent-color: #356b5b; }
+@media (max-width: 640px) { .panel { gap: 8px; } .title { font-size: 19px; } .eyebrow { font-size: 9px; } .summary strong { font-size: 21px; } .summary { padding-top: 6px; } }
+
+.lakes { display: grid; gap: 8px; padding: 10px 12px; border-radius: 10px; background: #f0f4ed; }
+.lakes > div { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; }
+.lakes small { color: #738278; margin-left: 4px; font-size: 10px; }
+.lakes strong { color: #2f5d9e; font-variant-numeric: tabular-nums; }

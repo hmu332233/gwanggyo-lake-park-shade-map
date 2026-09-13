@@ -1,0 +1,46 @@
+{
+  "name": "gwanggyo-lake-park-shade-map",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 3000",
+    "build": "npm run typecheck && vite build",
+    "lint": "eslint",
+    "fetch:osm": "NODE_OPTIONS=--dns-result-order=ipv4first tsx scripts/fetch-osm.ts",
+    "test": "vitest run",
+    "bench": "tsx scripts/bench-shadows.ts",
+    "typecheck": "tsc --noEmit",
+    "fetch:canopy": "NODE_OPTIONS=--dns-result-order=ipv4first tsx scripts/fetch-canopy-chm.ts",
+    "preview": "vite preview --host 127.0.0.1 --port 3000"
+  },
+  "dependencies": {
+    "@turf/turf": "^7.4.0",
+    "maplibre-gl": "^6.7.0",
+    "polygon-clipping": "^0.15.7",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "suncalc": "^2.0.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/d3-contour": "^3.0.6",
+    "@types/geojson": "^7946.0.16",
+    "@types/node": "^24.13.4",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^6.1.1",
+    "d3-contour": "^4.0.2",
+    "eslint": "^9",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "geotiff": "^3.0.5",
+    "globals": "^17.12.0",
+    "osmtogeojson": "^3.0.0-beta.5",
+    "tsx": "^4.23.13",
+    "typescript": "^5",
+    "typescript-eslint": "^8.70.0",
+    "vite": "^8.2.2",
+    "vitest": "^5.0.0"
+  },
+  "type": "module"
+}
