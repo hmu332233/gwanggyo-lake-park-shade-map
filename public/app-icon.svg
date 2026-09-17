@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">광교호수공원 그늘 지도</title>
+  <desc id="desc">햇빛 아래 나무가 호수에 그늘을 드리우는 모습</desc>
+  <defs>
+    <clipPath id="lake">
+      <path d="M72 342c0-57 70-93 170-93 111 0 198 48 198 105 0 58-82 91-190 91-103 0-178-41-178-103Z"/>
+    </clipPath>
+  </defs>
+  <rect x="20" y="20" width="472" height="472" rx="112" fill="#f5f2e7"/>
+  <circle cx="133" cy="139" r="55" fill="#e7a33e"/>
+  <path d="M112 263c0-101 77-178 178-178 70 0 130 37 158 89 8 15-3 31-20 33-31 3-50 22-73 44-38 36-87 55-141 55-41 0-76-10-102-25Z" fill="#356b5b"/>
+  <path d="M72 342c0-57 70-93 170-93 111 0 198 48 198 105 0 58-82 91-190 91-103 0-178-41-178-103Z" fill="#a9d5dc"/>
+  <path d="M206 263c79-19 179 7 234 69v46c-57 20-139 18-189-12-23-14-10-31-39-43-30-12-58-13-72-30-13-15 19-24 66-30Z" fill="#3f6480" clip-path="url(#lake)"/>
+  <path d="M119 264c-23 19-33 44-34 77" fill="none" stroke="#356b5b" stroke-linecap="round" stroke-width="25"/>
+</svg>
