@@ -30,6 +30,7 @@ export function useShadows(layers: ShadeLayers | null, sun: SunPosition | null, 
 
     const fallback = async (job: Job) => {
       const engine = await import("./shadow-engine");
+      await engine.initClipper();
       if (!alive || latestJob !== job) return;
       fallbackEngine ??= engine.createShadowEngine(layers);
       const result = engine.computeShadowResult(fallbackEngine, job.sun, job.flags);

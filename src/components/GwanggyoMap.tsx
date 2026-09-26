@@ -97,8 +97,10 @@ export interface GwanggyoMapProps {
   canopy: CanopyCollection | null;
   canopyChm: CanopyCollection | null;
   structures: StructureCollection | null;
-  /** Union of all shadows — drawn as one fill so overlaps don't darken. */
+  /** Union of full-strength shadows — drawn as one fill so overlaps don't darken. */
   shadowUnion: MultiPolygon | null;
+  /** Lighter shade under leafless deciduous crowns, outside shadowUnion. */
+  partialShadowUnion: MultiPolygon | null;
   /** Short sections with individually sampled shade. */
   segmentPaths: ShadeSegmentCollection | null;
   visibility: LayerVisibility;
@@ -111,6 +113,7 @@ const SRC = {
   parkGround: "gw-park-ground",
   buildings: "gw-buildings",
   shadows: "gw-shadows",
+  partialShadows: "gw-partial-shadows",
   paths: "gw-paths",
   trees: "gw-trees",
   canopy: "gw-canopy",
@@ -124,6 +127,7 @@ const LYR = {
   canopyChm3d: "gw-canopy-chm-3d",
   water: "gw-water-fill",
   shadows: "gw-shadows-fill",
+  partialShadows: "gw-partial-shadows-fill",
   canopy: "gw-canopy-fill",
   canopyChm: "gw-canopy-chm-fill",
   canopyChmOutline: "gw-canopy-chm-line",
@@ -144,7 +148,10 @@ function firstSymbolLayer(map: MLMap): string | undefined {
 
 const HEIGHT_SRC_LABEL: Record<string, string> = { osm: "OSM height", levels: "층수 × 3m", estimated: "추정값" };
 
-type ShadeState = Pick<GwanggyoMapProps, "shadowUnion" | "segmentPaths" | "daylight" | "isComputing">;
+type ShadeState = Pick<GwanggyoMapProps, "shadowUnion" | "partialShadowUnion" | "segmentPaths" | "daylight" | "isComputing">;
+
+const evergreenLine = (share: unknown) =>
+  typeof share === "number" ? `상록 비율 약 ${Math.round(share * 100)}% <span style="color:#888">(Sentinel-2 겨울 NDVI 추정)</span>` : null;
 
 const popupHtml = (title: string, lines: string[]) =>
   `<div style="font:12px/1.4 system-ui"><b>${title}</b><br/>${lines.join("<br/>")}</div>`;
@@ -176,6 +183,8 @@ function addMapPopups(map: MLMap, shadeState: { current: ShadeState }) {
     const lines = [`높이 ${p.height} m <span style="color:#888">(${HEIGHT_SRC_LABEL[String(p.heightSource)] ?? ""})</span>`];
     if (p.crownRadius) lines.push(`수관 반경 ${p.crownRadius} m`);
     if (p.kind) lines.push(`종류 ${p.kind}`);
+    const evergreen = evergreenLine(p.evergreenShare);
+    if (evergreen) lines.push(evergreen);
     popup.setLngLat(e.lngLat).setHTML(popupHtml(String(p.name ?? label), lines)).addTo(map);
   };
 
@@ -196,7 +205,8 @@ function addMapPopups(map: MLMap, shadeState: { current: ShadeState }) {
         popupHtml("수목 (위성 추정)", [
           `수관 높이 ${p.heightMin}~ m 구간 → ${p.height} m로 계산`,
           `면적 약 ${Number(p.areaM2).toLocaleString()} m²`,
-          `<span style="color:#888">Meta·WRI Canopy Height Map (CC BY 4.0)</span>`,
+          ...[evergreenLine(p.evergreenShare)].filter((line): line is string => !!line),
+          `<span style="color:#888">Meta·WRI Canopy Height Maps v2 · 2019년 2월 영상 (CC BY 4.0)</span>`,
         ]),
       )
       .addTo(map);
@@ -208,9 +218,14 @@ function addMapPopups(map: MLMap, shadeState: { current: ShadeState }) {
     let label: string;
     if (!state.daylight) label = "태양이 낮거나 해가 져 계산할 수 없는 시간입니다.";
     else if (state.isComputing || !state.segmentPaths) label = "선택한 시간의 그늘을 계산 중입니다.";
-    else label = state.shadowUnion && pointInGeometry([e.lngLat.lng, e.lngLat.lat], state.shadowUnion)
-      ? "이 위치는 <b>예상 그늘</b>입니다."
-      : "이 위치는 <b>예상 햇빛</b>입니다.";
+    else {
+      const point = [e.lngLat.lng, e.lngLat.lat];
+      label = state.shadowUnion && pointInGeometry(point, state.shadowUnion)
+        ? "이 위치는 <b>예상 그늘</b>입니다."
+        : state.partialShadowUnion && pointInGeometry(point, state.partialShadowUnion)
+          ? "이 위치는 <b>옅은 그늘</b>입니다. 잎이 적은 낙엽수 아래예요."
+          : "이 위치는 <b>예상 햇빛</b>입니다.";
+    }
     popup.setLngLat(e.lngLat).setHTML(popupHtml("공원 육지", [label, "실제 통행 가능 여부는 현장을 확인해 주세요."])).addTo(map);
   });
   for (const id of [LYR.parkGround, LYR.buildings, LYR.buildings3d, LYR.paths, LYR.trees, LYR.canopy, LYR.canopyChm, LYR.structures]) {
@@ -241,6 +256,7 @@ export default function GwanggyoMap({
   canopyChm,
   structures,
   shadowUnion,
+  partialShadowUnion,
   segmentPaths,
   visibility,
   daylight,
@@ -250,12 +266,12 @@ export default function GwanggyoMap({
   const mapRef = useRef<MLMap | null>(null);
   const readyRef = useRef(false);
   const initial3d = useRef(visibility.buildings3d);
-  const shadeState = useRef({ shadowUnion, segmentPaths, daylight, isComputing });
+  const shadeState = useRef({ shadowUnion, partialShadowUnion, segmentPaths, daylight, isComputing });
   const popupRef = useRef<maplibregl.Popup | null>(null);
   useEffect(() => {
-    shadeState.current = { shadowUnion, segmentPaths, daylight, isComputing };
+    shadeState.current = { shadowUnion, partialShadowUnion, segmentPaths, daylight, isComputing };
     popupRef.current?.remove();
-  }, [shadowUnion, segmentPaths, daylight, isComputing]);
+  }, [shadowUnion, partialShadowUnion, segmentPaths, daylight, isComputing]);
 
   // Create map once
   useEffect(() => {
@@ -351,6 +367,15 @@ export default function GwanggyoMap({
           source: SRC.canopyChm,
           minzoom: 15,
           paint: { "line-color": "#2f6f3a", "line-width": 0.6, "line-dasharray": [2, 2], "line-opacity": 0.25 },
+        },
+        beforeId,
+      );
+      map.addLayer(
+        {
+          id: LYR.partialShadows,
+          type: "fill",
+          source: SRC.partialShadows,
+          paint: { "fill-color": "#1e2a44", "fill-opacity": 0.1, "fill-antialias": false },
         },
         beforeId,
       );
@@ -525,8 +550,9 @@ export default function GwanggyoMap({
   useEffect(() => {
     runWhenReady(mapRef, readyRef, (map) => {
       setSourceData(map, SRC.shadows, shadowUnion ? { type: "Feature", geometry: shadowUnion, properties: {} } : EMPTY_FC);
+      setSourceData(map, SRC.partialShadows, partialShadowUnion ? { type: "Feature", geometry: partialShadowUnion, properties: {} } : EMPTY_FC);
     });
-  }, [shadowUnion]);
+  }, [shadowUnion, partialShadowUnion]);
 
   // Layer visibility + 3D toggle
   useEffect(() => {
@@ -535,6 +561,7 @@ export default function GwanggyoMap({
         if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", on ? "visible" : "none");
       };
       set(LYR.shadows, visibility.shadows);
+      set(LYR.partialShadows, visibility.shadows);
       set(LYR.paths, visibility.paths);
       set(LYR.pathsCasing, visibility.paths);
       set(LYR.trees, visibility.vegetation);

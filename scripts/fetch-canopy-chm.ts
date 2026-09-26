@@ -1,9 +1,11 @@
 /**
  * Estimate tree canopy around Gwanggyo Lake Park from satellite imagery.
  *
- * Source: Meta & WRI "High Resolution Canopy Height Maps" (Tolan et al. 2024),
- * Canopy height estimates derived from Maxar imagery, CC BY 4.0, public COGs on AWS Open Data:
- *   https://dataforgood-fb-data.s3.amazonaws.com/forests/v1/alsgedi_global_v6_float/chm/<quadkey>.tif
+ * Source: Meta & WRI "Canopy Height Maps v2" (CHMv2, DINOv3-based, released 2026-03),
+ * canopy height in whole metres (uint8) from Maxar imagery, CC BY 4.0, public COGs on AWS Open Data:
+ *   https://dataforgood-fb-data.s3.amazonaws.com/forests/v2/global/dinov3_global_chm_v2_ml3/chm/<z10 quadkey>.tif
+ * The park's source image is dated 2019-02-24 (metadata/<quadkey>.geojson, acq_date): a leaf-off winter scene.
+ * Against GEDI lidar in the park, v2 is far less biased than v1 (see docs/data-and-methods.md).
  *
  * Read the native-resolution AOI window (HTTP range requests, or a cached tile).
  * Contour nested height thresholds every 3 m starting at 2 m, simplify (~1 m),
@@ -22,10 +24,10 @@ import polygonClipping from "polygon-clipping";
 import { area, simplify, bbox as turfBbox } from "@turf/turf";
 import type { Feature, FeatureCollection, MultiPolygon, Polygon, Position } from "geojson";
 
-const TILE = "132110320"; // z9 quadkey covering Gwanggyo (from tiles.geojson)
-const URL_ = `https://dataforgood-fb-data.s3.amazonaws.com/forests/v1/alsgedi_global_v6_float/chm/${TILE}.tif`;
+const TILE = "1321103203"; // z10 quadkey covering Gwanggyo (from tiles.geojson)
+const URL_ = `https://dataforgood-fb-data.s3.amazonaws.com/forests/v2/global/dinov3_global_chm_v2_ml3/chm/${TILE}.tif`;
 const OUT_DIR = join(process.cwd(), "public", "data", "gwanggyo");
-const CACHE = join(process.cwd(), ".cache", "chm", `${TILE}_window.json`);
+const CACHE = join(process.cwd(), ".cache", "chm", `v2_${TILE}_window.json`);
 
 /** Canopy height bands: [min, representative height]. */
 const BANDS: [number, number][] = [
@@ -68,7 +70,7 @@ async function readWindow(aoiBbox: [number, number, number, number]): Promise<Wi
     console.log("using cached window", CACHE);
     return JSON.parse(readFileSync(CACHE, "utf8")) as Window;
   }
-  const localTif = join(process.cwd(), ".cache", "chm", `${TILE}.tif`);
+  const localTif = join(process.cwd(), ".cache", "chm", `v2_${TILE}.tif`);
   const tiff = existsSync(localTif) ? await fromFile(localTif) : await fromUrl(URL_, { allowFullFile: false });
   const image = await tiff.getImage();
   const [ox, oy] = image.getOrigin();
@@ -83,8 +85,8 @@ async function readWindow(aoiBbox: [number, number, number, number]): Promise<Wi
   const y0 = Math.floor((latToY(n) - oy) / ry); // ry is negative
   const y1 = Math.ceil((latToY(s) - oy) / ry);
   console.log(`reading window px [${x0},${y0}] -> [${x1},${y1}] (${x1 - x0} x ${y1 - y0})`);
-  const raster = (await image.readRasters({ window: [x0, y0, x1, y1], samples: [0] })) as unknown as Float32Array[] & { width: number; height: number };
-  const values = Array.from(raster[0] as unknown as Float32Array);
+  const raster = (await image.readRasters({ window: [x0, y0, x1, y1], samples: [0] })) as unknown as ArrayLike<number>[] & { width: number; height: number };
+  const values = Array.from(raster[0]);
   const win: Window = { width: raster.width, height: raster.height, originX: ox + x0 * rx, originY: oy + y0 * ry, pixel: rx, values };
   mkdirSync(join(process.cwd(), ".cache", "chm"), { recursive: true });
   writeFileSync(CACHE, JSON.stringify(win));
@@ -172,7 +174,7 @@ async function main() {
           height: repH,
           heightMin: minH,
           heightSource: "chm",
-          source: "meta-wri-chm-v6",
+          source: "meta-wri-chm-v2",
           areaM2: Math.round(outputArea),
           name: null,
         },

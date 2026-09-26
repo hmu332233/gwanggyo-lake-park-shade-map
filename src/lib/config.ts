@@ -78,6 +78,25 @@ export const STRUCTURE_DEFAULT_HEIGHT_M: Record<string, number> = {
   other: 3,
 };
 
+/**
+ * Leaf fraction of deciduous canopy by day of year, piecewise linear [dayOfYear, 0..1].
+ * Fitted to the 2023–2025 Sentinel-2 NDVI of the park's deciduous tall canopy
+ * (`npm run fetch:leaf` prints the per-scene samples): leaf-out from early April,
+ * full leaf by mid-May, leaf fall from late October, bare by early December.
+ */
+export const DECIDUOUS_LEAF_CURVE: [number, number][] = [
+  [90, 0],
+  [105, 0.5],
+  [130, 1],
+  [300, 1],
+  [320, 0.5],
+  [338, 0],
+];
+/** Shade of a leafless deciduous crown (branches only), relative to full leaf. Model assumption. */
+export const LEAFLESS_CROWN_SHADE = 0.3;
+/** Crown base as a share of tree height: the open trunk zone below lets low sun through. Model assumption. */
+export const CROWN_BASE_RATIO = 0.3;
+
 /** Sample spacing (m) along paths when measuring shade ratio. */
 export const PATH_SAMPLE_STEP_M = 5;
 

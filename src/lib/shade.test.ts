@@ -37,7 +37,7 @@ describe("segment shade", () => {
       type: "Feature", properties: { id: "loop", name: "호수 둘레길", lake: "호수", highway: "footway", surface: null },
       geometry: { type: "LineString", coordinates: [[127.0665, 37.2835], [127.0675, 37.2835], [127.0675, 37.2840]] },
     }] };
-    const shadows: ShadowCollection = { type: "FeatureCollection", features: [{ type: "Feature", geometry: sq(127.0660, 37.2830, 127.0670, 37.2840), properties: { sourceId: "a", kind: "building", height: 10, shadowLength: 10 } }] };
+    const shadows: ShadowCollection = { type: "FeatureCollection", features: [{ type: "Feature", geometry: sq(127.0660, 37.2830, 127.0670, 37.2840), properties: { sourceId: "a", kind: "building", height: 10, shadowLength: 10, shade: 1 } }] };
     const graph = buildSegmentGraph(paths.features, 10);
     const shade = computeSegmentShade(graph, shadows, 5);
     const display = shadeSegmentPaths(paths, graph, shade);
@@ -53,7 +53,7 @@ describe("segment shade", () => {
     // Shadow covers the western half of the line.
     const shadows: ShadowCollection = {
       type: "FeatureCollection",
-      features: [{ type: "Feature", geometry: sq(127.0660, 37.2830, 127.0670, 37.2840), properties: { sourceId: "a", kind: "building", height: 10, shadowLength: 10 } }],
+      features: [{ type: "Feature", geometry: sq(127.0660, 37.2830, 127.0670, 37.2840), properties: { sourceId: "a", kind: "building", height: 10, shadowLength: 10, shade: 1 } }],
     };
     const line: LineString = { type: "LineString", coordinates: [[127.0665, 37.2835], [127.0675, 37.2835]] };
     const graph = buildSegmentGraph([{ type: "Feature", geometry: line, properties: {} }]);
@@ -75,11 +75,21 @@ describe("segment shade", () => {
     const shadows: ShadowCollection = {
       type: "FeatureCollection",
       features: [
-        { type: "Feature", geometry: sq(0, 0, 2, 2), properties: { sourceId: "a", kind: "building", height: 1, shadowLength: 1 } },
-        { type: "Feature", geometry: sq(1, 1, 3, 3), properties: { sourceId: "b", kind: "building", height: 1, shadowLength: 1 } },
+        { type: "Feature", geometry: sq(0, 0, 2, 2), properties: { sourceId: "a", kind: "building", height: 1, shadowLength: 1, shade: 1 } },
+        { type: "Feature", geometry: sq(1, 1, 3, 3), properties: { sourceId: "b", kind: "building", height: 1, shadowLength: 1, shade: 1 } },
       ],
     };
     const u = unionShadows(shadows)!;
     expect(u.coordinates.length).toBe(1);
+  });
+});
+
+describe("partial shade", () => {
+  it("counts the strongest covering shadow for each sample", () => {
+    const sq2 = (x0: number, y0: number, x1: number, y1: number) => ({ type: "Polygon" as const, coordinates: [[[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]]] });
+    const graph = buildSegmentGraph([{ type: "Feature", geometry: { type: "LineString", coordinates: [[127.066, 37.2835], [127.0662, 37.2835]] }, properties: {} }]);
+    const shadow = (shade: number) => ({ type: "Feature" as const, geometry: sq2(127.0659, 37.2834, 127.0663, 37.2836), properties: { sourceId: String(shade), kind: "canopy" as const, height: 1, shadowLength: 1, shade } });
+    expect(computeSegmentShade(graph, { type: "FeatureCollection", features: [shadow(0.3)] })[0]).toBeCloseTo(0.3, 10);
+    expect(computeSegmentShade(graph, { type: "FeatureCollection", features: [shadow(0.3), shadow(0.8)] })[0]).toBeCloseTo(0.8, 10);
   });
 });

@@ -6,6 +6,7 @@
 import polygonClipping from "polygon-clipping";
 import type { Feature, LineString, MultiPolygon, Polygon, Position } from "geojson";
 import type { PathCollection, ShadeSegmentCollection, ShadowCollection } from "../types/map";
+import { clipperUnion } from "./clipper";
 
 type Ring = Position[];
 
@@ -62,12 +63,21 @@ function bboxOf(g: Polygon | MultiPolygon): BBox {
  * cellDeg ≈ 0.0005° ≈ 45–55 m at this latitude.
  */
 export type PolygonIndex = (point: Position) => boolean;
+/** Strongest weight among the polygons containing a point, 0 outside all of them. */
+export type WeightIndex = (point: Position) => number;
 
 /** Create a point-in-polygon lookup over polygon bounding boxes. */
-export function createPolygonIndex(
+export function createPolygonIndex(geoms: (Polygon | MultiPolygon)[], cellDeg = 0.0005): PolygonIndex {
+  const weight = createWeightIndex(geoms, geoms.map(() => 1), cellDeg);
+  return (point) => weight(point) > 0;
+}
+
+/** Point lookup returning the maximum weight (0..1) of the containing polygons; stops at 1. */
+export function createWeightIndex(
   geoms: (Polygon | MultiPolygon)[],
+  weights: number[],
   cellDeg = 0.0005,
-): PolygonIndex {
+): WeightIndex {
   const cells = new Map<string, number[]>();
   const boxes = geoms.map(bboxOf);
   const cellRange = (b: BBox): [number, number, number, number] => [
@@ -92,19 +102,34 @@ export function createPolygonIndex(
   return (point) => {
     const key = `${Math.floor(point[0] / cellDeg)}:${Math.floor(point[1] / cellDeg)}`;
     const candidates = cells.get(key);
-    if (!candidates) return false;
+    if (!candidates) return 0;
+    let best = 0;
     for (const i of candidates) {
+      if (weights[i] <= best) continue;
       const b = boxes[i];
       if (point[0] < b[0] || point[0] > b[2] || point[1] < b[1] || point[1] > b[3]) continue;
-      if (pointInGeometry(point, geoms[i])) return true;
+      if (pointInGeometry(point, geoms[i])) {
+        best = weights[i];
+        if (best >= 1) break;
+      }
     }
-    return false;
+    return best;
   };
 }
 
-/** Union of all shadow geometries into one MultiPolygon (for uniform rendering). */
+/** Shade lookup over shadow polygons, weighted by each shadow's relative shade. */
+export function createShadeIndex(shadows: ShadowCollection): WeightIndex {
+  return createWeightIndex(shadows.features.map((f) => f.geometry), shadows.features.map((f) => f.properties.shade ?? 1));
+}
+
+/**
+ * Union of all shadow geometries into one MultiPolygon (for uniform rendering).
+ * Uses WebAssembly Clipper when it has loaded, otherwise polygon-clipping.
+ */
 export function unionShadows(shadows: ShadowCollection): MultiPolygon | null {
   if (shadows.features.length === 0) return null;
+  const fast = clipperUnion(shadows.features.flatMap(({ geometry }) => (geometry.type === "Polygon" ? [geometry.coordinates] : geometry.coordinates)));
+  if (fast) return { type: "MultiPolygon", coordinates: fast };
   const geoms = shadows.features.map((f) => f.geometry.coordinates);
   try {
     const out = polygonClipping.union(...(geoms as Parameters<typeof polygonClipping.union>));
@@ -227,10 +252,11 @@ export function shadeSegmentPaths(paths: PathCollection, graph: SegmentGraph, sh
 /**
  * Shade ratio per segment, sampling every `stepM` meters along the segment.
  * Equal-length cells use their midpoints, avoiding double-counted boundary nodes.
+ * A midpoint counts with the strongest shade covering it (partial under leafless crowns).
  */
 export function computeSegmentShade(graph: SegmentGraph, shadows: ShadowCollection, stepM = 5): Float64Array {
   const { nodes, segments } = graph;
-  const isInShadow = createPolygonIndex(shadows.features.map((f) => f.geometry));
+  const shadeAt = createShadeIndex(shadows);
   const out = new Float64Array(segments.length);
   for (let i = 0; i < segments.length; i++) {
     const e = segments[i];
@@ -239,7 +265,7 @@ export function computeSegmentShade(graph: SegmentGraph, shadows: ShadowCollecti
     let hit = 0;
     for (let k = 0; k < n; k++) {
       const t = (k + 0.5) / n;
-      if (isInShadow([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t])) hit++;
+      hit += shadeAt([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
     }
     out[i] = hit / n;
   }

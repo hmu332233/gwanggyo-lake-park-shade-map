@@ -5,6 +5,7 @@
  * responses whose id is older than the latest request.
  */
 import { computeShadowResult, createShadowEngine, type ShadeResult, type ShadowEngine } from "../lib/shadow-engine";
+import { initClipper } from "../lib/clipper";
 import type { CasterFlags, ShadeLayers, SunPosition } from "../types/map";
 
 export type ShadowWorkerRequest =
@@ -14,14 +15,17 @@ export type ShadowWorkerRequest =
 export type ShadowWorkerResponse = { type: "result"; id: number; result: ShadeResult };
 
 let engine: ShadowEngine | null = null;
+// Compute requests wait for the WebAssembly clipper; if it fails to load they use polygon-clipping.
+const clipperLoaded = initClipper();
 
-self.onmessage = (ev: MessageEvent<ShadowWorkerRequest>) => {
+self.onmessage = async (ev: MessageEvent<ShadowWorkerRequest>) => {
   const msg = ev.data;
   if (msg.type === "init") {
     engine = createShadowEngine(msg.layers);
     return;
   }
   if (msg.type === "compute") {
+    await clipperLoaded;
     const res: ShadowWorkerResponse = { type: "result", id: msg.id, result: computeShadowResult(engine, msg.sun, msg.flags) };
     self.postMessage(res);
   }

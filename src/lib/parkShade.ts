@@ -3,7 +3,7 @@ import { area, bbox } from "@turf/turf";
 import polygonClipping from "polygon-clipping";
 import type { FeatureCollection, MultiPolygon, Polygon, Position } from "geojson";
 import type { BuildingCollection, ShadowCollection } from "../types/map";
-import { createPolygonIndex } from "./shade";
+import { createPolygonIndex, createShadeIndex } from "./shade";
 
 type Ground = FeatureCollection<Polygon | MultiPolygon>;
 
@@ -72,12 +72,12 @@ export function buildParkGroundGrid(ground: Ground, stepM = 8): ParkGroundGrid {
   return grid;
 }
 
-/** Approximate shaded land area from the grid; exact polygon area sets the denominator. */
+/** Approximate shaded land area from the grid (partial shade counts partly); exact polygon area sets the denominator. */
 export function computeParkGroundShade(grid: ParkGroundGrid, shadows: ShadowCollection): ParkGroundShade {
-  const isInShadow = createPolygonIndex(shadows.features.map(f => f.geometry));
+  const shadeAt = createShadeIndex(shadows);
   let shadedWeight = 0;
   for (let i = 0; i < grid.points.length; i++) {
-    if (isInShadow(grid.points[i])) shadedWeight += grid.weights[i];
+    shadedWeight += grid.weights[i] * shadeAt(grid.points[i]);
   }
   const ratio = grid.totalWeight ? Math.min(1, shadedWeight / grid.totalWeight) : 0;
   return { areaM2: grid.areaM2, shadedM2: grid.areaM2 * ratio, ratio };

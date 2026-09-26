@@ -3,7 +3,7 @@ import { calculateAllShadows, calculateBuildingShadow, shadowLength } from "./sh
 import type { ShadeLayers } from "../types/map";
 import { dateAtMinutes, getSunPosition, shadowBearingDeg } from "./sun";
 import { centroid, area } from "@turf/turf";
-import type { Polygon } from "geojson";
+import type { Polygon, Position } from "geojson";
 
 const deg = (r: number) => (r * 180) / Math.PI;
 const rad = (d: number) => (d * Math.PI) / 180;
@@ -20,7 +20,7 @@ describe("canopy source preference", () => {
       canopyChm: { type: "FeatureCollection", features: [{ type: "Feature", geometry, properties: { id: "detailed", height: 6.5, heightSource: "chm", name: null } }] },
     };
     const sun = { altitude: rad(45), altitudeDeg: 45, azimuth: rad(180), azimuthDeg: 180 };
-    const ids = (data: ShadeLayers, canopyChm = true) => calculateAllShadows(data, sun, { vegetation: true, canopyChm }).features.map(f => f.properties.sourceId);
+    const ids = (data: ShadeLayers, canopyChm = true) => calculateAllShadows(data, sun, { vegetation: true, canopyChm, deciduousLeaf: 1 }).features.map(f => f.properties.sourceId);
     expect(ids(layers)).toEqual(["tree", "shelter", "detailed"]);
     expect(ids(layers, false)).toEqual(["tree", "shelter"]);
     expect(ids({ ...layers, canopyChm: empty })).toEqual(["tree", "coarse", "shelter"]);
@@ -206,5 +206,70 @@ describe("canopy clearings", () => {
     const shadow = calculateBuildingShadow(footprint, 2, rad(45), rad(180), { preserveVoids: true })!;
     expect(booleanPointInPolygon(position(50, 97), shadow)).toBe(false);
     expect(booleanPointInPolygon(position(50, 91), shadow)).toBe(true);
+  });
+});
+
+describe("crown base", () => {
+  it("leaves the sun-side strip under a raised crown lit and keeps the far shadow edge", () => {
+    const sun = { altitude: rad(45), azimuth: rad(180) }; // shadow falls north, length = height
+    const solid = calculateBuildingShadow(square, 10, sun.altitude, sun.azimuth)!;
+    const raised = calculateBuildingShadow(square, 10, sun.altitude, sun.azimuth, { baseM: 3 })!;
+    const bbox = (g: Polygon) => {
+      const ys = g.coordinates[0].map((p) => p[1]);
+      return [Math.min(...ys), Math.max(...ys)];
+    };
+    const [solidSouth, solidNorth] = bbox(solid.geometry as Polygon);
+    const [raisedSouth, raisedNorth] = bbox(raised.geometry as Polygon);
+    expect(raisedNorth).toBeCloseTo(solidNorth, 7);
+    // 3 m base at 45° → the shadow starts ~3 m north of the footprint's south edge.
+    expect((raisedSouth - solidSouth) * 110_900).toBeCloseTo(3, 0);
+    expect(area(raised)).toBeLessThan(area(solid));
+  });
+});
+
+describe("seasonal crown shade", () => {
+  it("weights deciduous canopy shadows by the date's leaf fraction", () => {
+    const empty = { type: "FeatureCollection" as const, features: [] };
+    const layers: ShadeLayers = {
+      buildings: empty, paths: empty, park: empty, parkGround: empty, trees: empty, structures: empty, canopy: empty,
+      canopyChm: { type: "FeatureCollection", features: [
+        { type: "Feature", geometry: square, properties: { id: "oak", height: 10, heightSource: "chm", name: null, evergreenShare: 0 } },
+        { type: "Feature", geometry: square, properties: { id: "pine", height: 10, heightSource: "chm", name: null, evergreenShare: 1 } },
+      ] },
+    };
+    const sun = { altitude: rad(45), altitudeDeg: 45, azimuth: rad(180), azimuthDeg: 180 };
+    const shades = (deciduousLeaf: number) =>
+      calculateAllShadows(layers, sun, { vegetation: true, canopyChm: true, deciduousLeaf }).features.map((f) => f.properties.shade);
+    expect(shades(1)).toEqual([1, 1]);
+    expect(shades(0)[0]).toBeLessThan(1);
+    expect(shades(0)[1]).toBe(1);
+  });
+});
+
+describe("front-edge sweep", () => {
+  it("matches the brute-force union of every swept edge, for either ring orientation and with holes", async () => {
+    const polygonClipping = (await import("polygon-clipping")).default;
+    const { sweepPolygon, convexHull } = await import("./shadow");
+    const { offsetPosition } = await import("./geo");
+    const o = [127.0665, 37.2835];
+    const at = (x: number, y: number) => [o[0] + x / (6378137 * Math.cos(rad(o[1]))) * 180 / Math.PI, o[1] + y / 6378137 * 180 / Math.PI];
+    // A "C" shape with a hole in its thick side: concave, holed, several front-facing runs.
+    const outer = [[0, 0], [60, 0], [60, 15], [20, 15], [20, 45], [60, 45], [60, 60], [0, 60], [0, 0]].map(([x, y]) => at(x, y));
+    const hole = [[5, 20], [12, 20], [12, 40], [5, 40], [5, 20]].map(([x, y]) => at(x, y));
+    const brute = (rings: Position[][], len: number, bearing: number) => {
+      const moved = rings.map((r) => r.map((p) => offsetPosition(p, len, bearing)));
+      const pieces: Position[][][] = [rings, moved];
+      rings.forEach((r, k) => r.slice(0, -1).forEach((_, i) => {
+        const q = convexHull([r[i], r[i + 1], moved[k][i + 1], moved[k][i]]);
+        if (q) pieces.push([q]);
+      }));
+      return area({ type: "MultiPolygon", coordinates: polygonClipping.union(...(pieces as Parameters<typeof polygonClipping.union>)) as never });
+    };
+    for (const rings of [[outer, hole], [[...outer].reverse(), [...hole].reverse()]]) {
+      for (const bearing of [0, 37, 90, 145, 200, 270, 333]) {
+        const fast = sweepPolygon({ type: "Polygon", coordinates: rings }, 25, bearing)!;
+        expect(area(fast) / brute(rings, 25, bearing)).toBeCloseTo(1, 6);
+      }
+    }
   });
 });

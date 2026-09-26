@@ -5,6 +5,7 @@ import MapControls, { type ShadeStats } from "./MapControls";
 import { loadGwanggyoData, type GwanggyoData } from "@/lib/data";
 import { GWANGGYO_CENTER, TIME_RANGE, MIN_SUN_ALTITUDE_RAD } from "@/lib/config";
 import { dateAtMinutes, formatMinutes, getSunPosition, todayISO, koreaNow } from "@/lib/sun";
+import { deciduousLeafFraction } from "@/lib/leaf";
 import { useShadows } from "@/lib/useShadows";
 import { readUrlState, writeUrlState } from "@/lib/urlState";
 import type { CasterFlags, LayerVisibility, SunPosition } from "@/types/map";
@@ -58,9 +59,10 @@ export default function ShadeMapApp() {
 
   // Shadows + shade ratios are recomputed (in a Web Worker) whenever the sun or the data changes.
   // Toggling a caster layer also removes it from the shadow/shade computation.
+  const deciduousLeaf = useMemo(() => deciduousLeafFraction(date), [date]);
   const flags: CasterFlags = useMemo(
-    () => ({ vegetation: visibility.vegetation, canopyChm: visibility.canopyChm }),
-    [visibility.vegetation, visibility.canopyChm],
+    () => ({ vegetation: visibility.vegetation, canopyChm: visibility.canopyChm, deciduousLeaf }),
+    [visibility.vegetation, visibility.canopyChm, deciduousLeaf],
   );
   const { result, isComputing } = useShadows(data, sun, flags);
 
@@ -75,6 +77,7 @@ export default function ShadeMapApp() {
           parkShadedM2: result.parkShade.shadedM2,
           pathShade: result.pathShade.all.ratio,
           parkPathKm: result.pathShade.all.lengthM / 1000,
+          deciduousLeaf,
         }
       : null;
 
@@ -90,6 +93,7 @@ export default function ShadeMapApp() {
         canopyChm={data?.canopyChm ?? null}
         structures={data?.structures ?? null}
         shadowUnion={result?.shadowUnion ?? null}
+        partialShadowUnion={result?.partialShadowUnion ?? null}
         segmentPaths={sun && sun.altitude > MIN_SUN_ALTITUDE_RAD ? result?.segmentPaths ?? null : null}
         visibility={visibility}
         daylight={!!sun && sun.altitude > MIN_SUN_ALTITUDE_RAD}

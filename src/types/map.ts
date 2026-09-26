@@ -32,6 +32,8 @@ export interface ShadowProperties {
   kind: ShadowKind;
   height: number;
   shadowLength: number;
+  /** Relative shade 0..1: 1 for buildings and full-leaf crowns, lower for leafless deciduous crowns. */
+  shade: number;
 }
 export type ShadowFeature = Feature<Polygon | MultiPolygon, ShadowProperties>;
 export type ShadowCollection = FeatureCollection<Polygon | MultiPolygon, ShadowProperties>;
@@ -42,6 +44,10 @@ export interface TreeProperties {
   crownRadius: number;
   heightSource: HeightSource;
   species: string | null;
+  leafType?: string | null;
+  leafCycle?: string | null;
+  /** 0 = deciduous … 1 = evergreen, from OSM leaf tags or Sentinel-2 winter NDVI; null when unknown. */
+  evergreenShare?: number | null;
 }
 export type TreeCollection = FeatureCollection<Point, TreeProperties>;
 
@@ -54,6 +60,10 @@ export interface CanopyProperties {
   heightMin?: number;
   source?: string;
   areaM2?: number;
+  leafType?: string | null;
+  leafCycle?: string | null;
+  /** 0 = deciduous … 1 = evergreen, from OSM leaf tags or Sentinel-2 winter NDVI; null when unknown. */
+  evergreenShare?: number | null;
 }
 export type CanopyCollection = FeatureCollection<Polygon | MultiPolygon, CanopyProperties>;
 
@@ -81,10 +91,12 @@ export interface ShadeLayers {
   parkGround: FeatureCollection<Polygon | MultiPolygon>;
 }
 
-/** Which shadow casters take part in the computation (mirrors the layer toggles). */
+/** Which shadow casters take part in the computation (mirrors the layer toggles), and their season. */
 export interface CasterFlags {
   vegetation: boolean;
   canopyChm: boolean;
+  /** Deciduous leaf fraction 0..1 on the selected date. */
+  deciduousLeaf: number;
 }
 
 export interface SunPosition {

@@ -5,7 +5,7 @@ import { computeShadowResult, createShadowEngine, emptyShadeResult } from "./sha
 
 const empty = { type: "FeatureCollection" as const, features: [] };
 const sun = { altitude: Math.PI / 4, altitudeDeg: 45, azimuth: Math.PI, azimuthDeg: 180 };
-const flags = { vegetation: true, canopyChm: true };
+const flags = { vegetation: true, canopyChm: true, deciduousLeaf: 1 };
 const layers: ShadeLayers = {
   buildings: empty,
   paths: empty,
@@ -66,8 +66,8 @@ describe("shadow engine", () => {
 
   it("reuses its indexes while applying caster flags to real geometry", () => {
     const engine = createShadowEngine(simpleLayers);
-    const buildingsOnly = computeShadowResult(engine, sun, { vegetation: false, canopyChm: false });
-    const withTrees = computeShadowResult(engine, sun, { vegetation: true, canopyChm: false });
+    const buildingsOnly = computeShadowResult(engine, sun, { vegetation: false, canopyChm: false, deciduousLeaf: 1 });
+    const withTrees = computeShadowResult(engine, sun, { vegetation: true, canopyChm: false, deciduousLeaf: 1 });
 
     expect(buildingsOnly.shadows.features.map((f) => f.properties.sourceId)).toEqual(["building"]);
     expect(withTrees.shadows.features.map((f) => f.properties.sourceId)).toEqual(["building", "tree"]);

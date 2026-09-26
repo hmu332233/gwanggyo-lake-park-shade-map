@@ -8,7 +8,7 @@
  *   park.geojson        park boundary + the two reservoirs (원천저수지, 신대저수지)
  *   buildings.geojson   buildings whose shadow can reach the park (see "shadow filter" below), with normalized height
  *   paths.geojson       all OSM walking ways clipped to the park boundary
- *   trees.geojson       natural=tree points (height / crownRadius, estimated when untagged)
+ *   trees.geojson       natural=tree points (height / crownRadius, estimated when untagged; leaf_type / leaf_cycle)
  *   canopy.geojson      natural=wood|scrub, landuse=forest|orchard polygons (height)
  *   structures.geojson  amenity=shelter (정자/파고라), man_made=pergola|bridge, leisure=bandstand
  *
@@ -301,6 +301,8 @@ async function main() {
           crownRadius: crown ? crown / 2 : TREE_DEFAULTS.crownRadius,
           heightSource: height ? "osm" : "estimated",
           species: tags.species ?? tags.genus ?? null,
+          leafType: tags.leaf_type ?? null,
+          leafCycle: tags.leaf_cycle ?? null,
         },
       });
       continue;
@@ -312,7 +314,14 @@ async function main() {
       canopy.push({
         type: "Feature",
         geometry: f.geometry,
-        properties: { id, height: height ?? CANOPY_DEFAULT_HEIGHT_M, heightSource: height ? "osm" : "estimated", name: tags.name ?? null },
+        properties: {
+          id,
+          height: height ?? CANOPY_DEFAULT_HEIGHT_M,
+          heightSource: height ? "osm" : "estimated",
+          name: tags.name ?? null,
+          leafType: tags.leaf_type ?? null,
+          leafCycle: tags.leaf_cycle ?? null,
+        },
       });
       continue;
     }

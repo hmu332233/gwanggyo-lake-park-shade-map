@@ -14,7 +14,7 @@ const collection = (geometry: Polygon, kind = "park"): FeatureCollection<Polygon
 });
 const emptyBuildings: BuildingCollection = { type: "FeatureCollection", features: [] };
 const shadows = (geometry?: Polygon): ShadowCollection => ({ type: "FeatureCollection", features: geometry ? [{
-  type: "Feature", geometry, properties: { sourceId: "test", kind: "building", height: 10, shadowLength: 10 },
+  type: "Feature", geometry, properties: { sourceId: "test", kind: "building", height: 10, shadowLength: 10, shade: 1 },
 }] : [] });
 
 describe("park land shade", () => {

@@ -11,14 +11,20 @@ import {
   type SegmentGraph,
 } from "./shade";
 import { PATH_SAMPLE_STEP_M } from "./config";
+import polygonClipping from "polygon-clipping";
+import { clipperDifference } from "./clipper";
+
+export { initClipper } from "./clipper";
 import type { MultiPolygon } from "geojson";
 import type { CasterFlags, ShadeLayers, ShadeSegmentCollection, ShadowCollection, SunPosition } from "../types/map";
 
 export interface ShadeResult {
   /** Individual shadow polygons (buildings + vegetation + structures). */
   shadows: ShadowCollection;
-  /** Union of all shadows — what gets drawn, so overlaps don't double-darken. */
+  /** Union of full-strength shadows — what gets drawn, so overlaps don't double-darken. */
   shadowUnion: MultiPolygon | null;
+  /** Partial shade only (leafless deciduous crowns), outside the full-strength union. */
+  partialShadowUnion: MultiPolygon | null;
   /** Per-path shade ratios aligned with layers.paths.features. */
   pathShade: PathShadeResult;
   segmentPaths: ShadeSegmentCollection;
@@ -48,6 +54,7 @@ export function emptyShadeResult(): ShadeResult {
   return {
     shadows: empty,
     shadowUnion: null,
+    partialShadowUnion: null,
     pathShade: { ratios: [], park: zero, all: zero },
     parkShade: { areaM2: 0, shadedM2: 0, ratio: 0 },
     segmentPaths: { type: "FeatureCollection", features: [] },
@@ -61,7 +68,12 @@ export function computeShadowResult(engine: ShadowEngine | null, sun: SunPositio
   const t0 = performance.now();
   const shadows = calculateAllShadows(layers, sun, flags);
   const t1 = performance.now();
-  const shadowUnion = unionShadows(shadows);
+  const full = shadows.features.filter((f) => f.properties.shade >= 1);
+  const shadowUnion = unionShadows({ type: "FeatureCollection", features: full });
+  const partialShadowUnion = subtractUnion(
+    unionShadows({ type: "FeatureCollection", features: shadows.features.filter((f) => f.properties.shade < 1) }),
+    shadowUnion,
+  );
   const t2 = performance.now();
   const segmentShade = computeSegmentShade(graph, shadows, PATH_SAMPLE_STEP_M);
   const pathShade = aggregatePathShade(graph, segmentShade, inPark);
@@ -70,9 +82,23 @@ export function computeShadowResult(engine: ShadowEngine | null, sun: SunPositio
   return {
     shadows,
     shadowUnion,
+    partialShadowUnion,
     pathShade,
     parkShade,
     segmentPaths: shadeSegmentPaths(layers.paths, graph, segmentShade),
     ms: { shadows: t1 - t0, union: t2 - t1, paths: t3 - t2 },
   };
+}
+
+function subtractUnion(a: MultiPolygon | null, b: MultiPolygon | null): MultiPolygon | null {
+  if (!a || !b) return a;
+  const fast = clipperDifference(a.coordinates, b.coordinates);
+  if (fast) return fast.length ? { type: "MultiPolygon", coordinates: fast } : null;
+  try {
+    const out = polygonClipping.difference(a.coordinates as polygonClipping.Geom, b.coordinates as polygonClipping.Geom);
+    return out.length ? { type: "MultiPolygon", coordinates: out as MultiPolygon["coordinates"] } : null;
+  } catch {
+    // Drawing overlap is only cosmetic; shade ratios are sampled independently of these unions.
+    return a;
+  }
 }
